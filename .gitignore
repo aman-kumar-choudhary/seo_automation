@@ -1,0 +1,5 @@
+.agents
+.aws
+.codex
+.pytest_cache
+.venv
