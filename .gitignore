@@ -1,5 +1,44 @@
-.agents
-.aws
-.codex
-.pytest_cache
-.venv
+# Python & Environment
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+.venv/
+env/
+venv/
+ENV/
+.pytest_cache/
+
+# IDE & OS
+.agents/
+.aws/
+.codex/
+.DS_Store
+*.swp
+*~
+
+# Secrets & Environment variables
+.env
+.env.local
+.env.*
+!.env.example
+
+# Credentials & Browser Sessions
+data/credentials.json
+data/sessions/
+*.session.json
+
+# SQLite Databases
+*.db
+*.db-journal
+*.sqlite3
+data/*.db
+data/*.db-journal
+
+# Artifacts & Output
+screenshots/
+output/
+traces/
+*.zip
+*.log

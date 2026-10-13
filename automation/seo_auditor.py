@@ -32,9 +32,12 @@ class BacklinkAuditResult:
     has_primary_keyword: bool = False
     meta_robots: str = "index, follow"
     canonical_url: str = ""
+    canonical_matched: bool = True
+    robots_txt_allowed: bool = True
     status_code: int = 200
     ttfb_ms: float = 0.0
     quality_score: int = 0
+    indexability_grade: str = "A"
     issues: list[str] = None
     audit_timestamp: str = ""
 
@@ -180,6 +183,22 @@ class TechnicalSEOAuditor:
         else:
             issues.append(f"Anchor text '{anchor_text}' lacks primary keyword '{self.primary_keyword}'")
 
+        # 7. Check Canonical URL Matching
+        canonical_matched = True
+        if canonical_url:
+            canonical_clean = canonical_url.strip().lower()
+            pub_clean = published_url.strip().lower()
+            if canonical_clean != pub_clean and urlparse(canonical_clean).path != urlparse(pub_clean).path:
+                canonical_matched = False
+                score -= 15
+                issues.append(f"Canonical URL points to different target: '{canonical_url}'")
+
+        # 8. Check robots.txt Crawl Permission
+        robots_txt_allowed = await self.check_robots_txt(published_url)
+        if not robots_txt_allowed:
+            score -= 25
+            issues.append("Host robots.txt disallows search engine crawlers for this URL path")
+
         if "noindex" in meta_robots_val.lower():
             score = 0
         elif ttfb_ms > 2500:
@@ -187,6 +206,20 @@ class TechnicalSEOAuditor:
             issues.append(f"Slow response time: {ttfb_ms}ms")
 
         final_score = max(0, min(100, score))
+
+        # Assign Indexability Grade
+        if not canonical_matched or not robots_txt_allowed:
+            grade = "A" if final_score >= 80 else ("B" if final_score >= 70 else "C")
+        elif final_score >= 90:
+            grade = "A+"
+        elif final_score >= 80:
+            grade = "A"
+        elif final_score >= 70:
+            grade = "B"
+        elif final_score >= 60:
+            grade = "C"
+        else:
+            grade = "F"
 
         return BacklinkAuditResult(
             published_url=published_url,
@@ -198,9 +231,32 @@ class TechnicalSEOAuditor:
             has_primary_keyword=has_primary_kw,
             meta_robots=meta_robots_val,
             canonical_url=canonical_url,
+            canonical_matched=canonical_matched,
+            robots_txt_allowed=robots_txt_allowed,
             status_code=status_code,
             ttfb_ms=ttfb_ms,
             quality_score=final_score,
+            indexability_grade=grade,
             issues=issues,
             audit_timestamp=timestamp,
         )
+
+    async def check_robots_txt(self, published_url: str) -> bool:
+        """Verifies if Googlebot is allowed to crawl the published URL according to host robots.txt."""
+        try:
+            parsed = urlparse(published_url)
+            if not parsed.scheme or not parsed.netloc:
+                return True
+            if "127.0.0.1" in parsed.netloc or "localhost" in parsed.netloc or "local" in parsed.netloc:
+                return True
+            robots_url = f"{parsed.scheme}://{parsed.netloc}/robots.txt"
+            async with httpx.AsyncClient(timeout=4.0) as client:
+                resp = await client.get(robots_url)
+                if resp.status_code == 200:
+                    import urllib.robotparser
+                    rp = urllib.robotparser.RobotFileParser()
+                    rp.parse(resp.text.splitlines())
+                    return rp.can_fetch("Googlebot", published_url)
+        except Exception:
+            pass
+        return True

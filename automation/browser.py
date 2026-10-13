@@ -8,6 +8,8 @@ from playwright.async_api import async_playwright, Browser, BrowserContext, Page
 
 from .screenshots import ScreenshotManager
 from .network_resilience import UserAgentRotator, DomainRateLimiter
+from .account_manager import AccountManager
+from .captcha_solver import CaptchaSolver, CaptchaSolveResult
 
 if TYPE_CHECKING:
     from config import Settings
@@ -27,6 +29,8 @@ class VisibleBrowser:
         self.screenshot_mgr = ScreenshotManager(settings.screenshot_dir)
         self.ua_rotator = UserAgentRotator()
         self.rate_limiter = DomainRateLimiter(settings.submission_cooldown_seconds)
+        self.account_mgr = AccountManager(settings, None)
+        self.captcha_solver = CaptchaSolver(settings)
 
     def _verify_display_environment(self) -> None:
         """Verifies that an active graphical desktop display is present when running headed."""
@@ -71,14 +75,30 @@ class VisibleBrowser:
         if self.monitor:
             await self.monitor.log(f"Browser launched successfully. {mode_msg}")
 
+    async def prepare_domain_session(self, domain: str) -> None:
+        """If a saved authenticated session state exists for this domain, load cookies into context."""
+        if self.context and self.account_mgr.has_saved_session(domain):
+            session_file = self.account_mgr.get_session_path(domain)
+            try:
+                import json
+                data = json.loads(session_file.read_text(encoding="utf-8"))
+                cookies = data.get("cookies", [])
+                if cookies:
+                    await self.context.add_cookies(cookies)
+                    if self.monitor:
+                        await self.monitor.log(f"Session Restored: Loaded saved authentication cookies for '{domain}'.")
+            except Exception:
+                pass
+
     async def goto(self, url: str, timeout: int = 30000) -> None:
-        """Navigates to URL and notifies monitoring hub with domain throttling."""
+        """Navigates to URL and notifies monitoring hub with domain throttling and session restore."""
         if not self.page:
             raise RuntimeError("Browser not started.")
 
         from urllib.parse import urlparse
         domain = urlparse(url).netloc.lower().removeprefix("www.")
         if domain:
+            await self.prepare_domain_session(domain)
             waited = await self.rate_limiter.throttle(domain)
             if waited > 0 and self.monitor:
                 await self.monitor.log(f"Rate Limiter: Cooldown {waited:.2f}s applied for domain '{domain}'.")
@@ -220,10 +240,23 @@ class VisibleBrowser:
             "div.h-captcha",
             "#cf-turnstile",
         ]
+        has_captcha = False
         for sel in captcha_selectors:
             count = await self.page.locator(sel).count()
             if count > 0:
-                return "CAPTCHA verification detected on page"
+                has_captcha = True
+                break
+
+        if has_captcha:
+            if getattr(self.settings, "captcha_detection_enabled", True):
+                if self.monitor:
+                    await self.monitor.log("CAPTCHA challenge detected: pausing for authorized human resolution...")
+                solve_res = await self.captcha_solver.solve(self)
+                if solve_res.solved and solve_res.captcha_type != "none":
+                    if self.monitor:
+                        await self.monitor.log(f"CAPTCHA challenge cleared by operator ({solve_res.method}). Resuming workflow.")
+                    return None
+            return "CAPTCHA verification detected on page"
 
         # Check for login / 2FA text in main body
         try:

@@ -67,16 +67,23 @@ def generate_summary(repository) -> dict:
     if hasattr(repository, "get_audit_summary"):
         audit_summary = repository.get_audit_summary()
 
+    campaign_summary = {}
+    if hasattr(repository, "get_campaign_analytics"):
+        ca_rows = [dict(r) for r in repository.get_campaign_analytics()]
+        from automation.traffic_analytics import TrafficAnalyticsTracker
+        campaign_summary = TrafficAnalyticsTracker().summarize_campaign(ca_rows)
+
     return {
         "total_platforms": total,
         "eligibility_breakdown": eligibility_counts,
         "submission_breakdown": submission_counts,
         "backlink_audits": audit_summary,
+        "campaign_traffic_impact": campaign_summary,
     }
 
 
 def export_json(repository, output_dir: Path | str = "output") -> Path:
-    """Exports all platform records and audit summaries to structured JSON."""
+    """Exports all platform records, audit summaries, and traffic analytics to structured JSON."""
     out_path = Path(output_dir)
     out_path.mkdir(parents=True, exist_ok=True)
     json_file = out_path / "execution_report.json"
@@ -89,12 +96,22 @@ def export_json(repository, output_dir: Path | str = "output") -> Path:
     if hasattr(repository, "get_backlink_audits"):
         audits = [dict(a) for a in repository.get_backlink_audits()]
 
+    campaign_analytics = []
+    if hasattr(repository, "get_campaign_analytics"):
+        campaign_analytics = [dict(r) for r in repository.get_campaign_analytics()]
+
+    public_verifs = []
+    if hasattr(repository, "get_public_verifications"):
+        public_verifs = [dict(r) for r in repository.get_public_verifications()]
+
     payload = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "summary": summary,
         "platforms_count": len(data),
         "platforms": data,
         "backlink_audits": audits,
+        "campaign_analytics": campaign_analytics,
+        "public_verifications": public_verifs,
     }
 
     json_file.write_text(json.dumps(payload, indent=2), encoding="utf-8")
