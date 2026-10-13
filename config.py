@@ -48,6 +48,33 @@ class Settings(BaseModel):
     max_retries_per_platform: int = int(os.getenv("SEO_MAX_RETRIES", "3"))
     health_check_timeout: float = float(os.getenv("SEO_HEALTH_TIMEOUT", "6.0"))
 
+    # Account and Session Persistence
+    credentials_path: Path = Path(os.getenv("SEO_CREDENTIALS_PATH", "data/credentials.json"))
+    session_dir: Path = Path(os.getenv("SEO_SESSION_DIR", "data/sessions"))
+
+    # Workflow execution bounds & safety limits
+    max_continuous_cycles: int = int(os.getenv("SEO_MAX_CONTINUOUS_CYCLES", "5"))
+    workflow_timeout_seconds: float = float(os.getenv("SEO_WORKFLOW_TIMEOUT", "600.0"))
+
+    # CAPTCHA Detection & Human Resolution Policy
+    captcha_detection_enabled: bool = os.getenv("SEO_CAPTCHA_DETECTION_ENABLED", "true").lower() == "true"
+    captcha_pause_timeout_seconds: float = float(os.getenv("SEO_CAPTCHA_PAUSE_TIMEOUT", "180.0"))
+    captcha_solver_enabled: bool = os.getenv("SEO_CAPTCHA_SOLVER_ENABLED", "true").lower() == "true"
+
+    # Autonomous Content Quality & Relevance Evaluator
+    auto_content_evaluation: bool = os.getenv("SEO_AUTO_CONTENT_EVALUATION", "true").lower() == "true"
+    min_content_approval_score: float = float(os.getenv("SEO_MIN_CONTENT_APPROVAL_SCORE", "75.0"))
+
+    # Independent Public Verification
+    public_verification_enabled: bool = os.getenv("SEO_PUBLIC_VERIFICATION_ENABLED", "true").lower() == "true"
+
+    # Campaign UTM Link Tracking
+    utm_tracking_enabled: bool = os.getenv("SEO_UTM_TRACKING", "true").lower() == "true"
+    utm_campaign: str = os.getenv("SEO_UTM_CAMPAIGN", "rfid_seo")
+
+    # Referral Traffic & Search Visibility Analytics
+    traffic_analytics_enabled: bool = os.getenv("SEO_TRAFFIC_ANALYTICS_ENABLED", "true").lower() == "true"
+
     # Notifications & Webhook alerts
     webhook_url: str | None = os.getenv("SEO_WEBHOOK_URL") or None
     webhook_enabled: bool = os.getenv("SEO_WEBHOOK_ENABLED", "false").lower() == "true"

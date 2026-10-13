@@ -166,7 +166,13 @@ Run the full automated test suite using `pytest`:
 ./.venv/bin/pytest -v
 ```
 
-### Test Coverage (58 passing tests)
+### Test Coverage (72 passing tests)
+- `tests/test_account_manager.py`: Persistent session storage, credentials lookup, and automated login.
+- `tests/test_captcha_solver.py`: Automated CAPTCHA detection, sitekey parsing, and token injection.
+- `tests/test_content_evaluator.py`: Autonomous draft relevance, accuracy, readability scoring, and auto-approval.
+- `tests/test_public_verifier.py`: Independent unauthenticated verification of public post reachability and links.
+- `tests/test_utm_and_analytics.py`: Campaign UTM query building and referral traffic impact estimation.
+- `tests/test_enhanced_audit.py`: Robots.txt crawl verification, canonical consistency, and indexability grades.
 - `tests/test_browser_headed.py`: Headed Chromium defaults, slow_mo, DISPLAY checks, headless override.
 - `tests/test_dashboard_websocket.py`: Dashboard rendering, command dispatch, draft updating, WebSocket state.
 - `tests/test_dashboard_quick_add.py`: Platform Quick-Add REST endpoint and queueing.

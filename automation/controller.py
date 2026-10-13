@@ -37,20 +37,23 @@ class WorkflowController:
         self.repo = repo
         self.hub = hub
         self.browser = browser
+        self.browser.controller = self
         self.monitor = Monitor(hub)
         self.notifier = WebhookNotifier(settings, repo)
         self.paused = False
         self.stopped = False
         self.skip = False
         self.running = False
+        self.run_lock = asyncio.Lock()
         self.current_platform_id: int | None = None
 
     async def initialize(self) -> None:
         try:
-            self.repo.db.execute("UPDATE platforms SET eligibility_status = 'DISCOVERED' WHERE rejection_reason LIKE '%sqlite3.Row%'")
-            self.repo.db.commit()
-        except Exception:
-            pass
+            if hasattr(self.repo, "cleanup_legacy_rows"):
+                self.repo.cleanup_legacy_rows()
+        except Exception as exc:
+            import logging
+            logging.getLogger(__name__).debug("Initialization cleanup skipped: %s", exc)
         await self.monitor.log("Dashboard ready. Click Start to begin the safe workflow.")
         await self.monitor.state(
             operation={
@@ -127,8 +130,11 @@ class WorkflowController:
         await self.monitor.state(progress=self.progress())
 
     async def _process_command(self, command: str) -> None:
-        if command == "start" and not self.running:
-            asyncio.create_task(self.run())
+        if command == "start":
+            if self.run_lock.locked() or self.running:
+                await self.monitor.log("Workflow is already in progress. Ignoring duplicate start request.")
+            else:
+                asyncio.create_task(self.run())
         elif command == "pause":
             self.paused = True
             await self.monitor.log("Pause requested: workflow will pause safely at the next checkpoint.")
@@ -217,14 +223,27 @@ class WorkflowController:
                 )
 
     async def run(self) -> None:
-        """Executes the automated workflow, with continuous auto-task looping if enabled."""
+        """Executes the automated workflow with concurrency locking and bounded continuous cycles."""
+        if self.run_lock.locked() or self.running:
+            await self.monitor.log("Workflow is already in progress. Ignoring duplicate start request.")
+            return
+
+        async with self.run_lock:
+            await self._run_internal()
+
+    async def _run_internal(self) -> None:
         self.running = True
         self.stopped = False
         self.continuous_mode = getattr(self, "continuous_mode", self.settings.continuous)
+        max_cycles = getattr(self.settings, "max_continuous_cycles", 5)
         cycle = 1
 
         try:
             while not self.stopped:
+                if self.continuous_mode and cycle > max_cycles:
+                    await self.monitor.log(f"Continuous mode: configured cycle limit ({max_cycles}) reached. Concluding safely.")
+                    break
+
                 await self.monitor.log(f"=== [CYCLE {cycle}] Starting Automated Social Media SEO Workflow ===")
 
                 # 0. SERP Ranking Position Check (if enabled)
@@ -244,7 +263,8 @@ class WorkflowController:
                         r_display = f"#{rank_res.rank_position}" if rank_res.is_ranked else "Not in top 30"
                         await self.monitor.log(f"SERP Tracker: Keyword '{self.settings.keyword}' organic position -> {r_display}")
                     except Exception as serp_err:
-                        pass
+                        import logging
+                        logging.getLogger(__name__).warning("SERP tracking warning: %s", serp_err)
 
                 # 1. Platform Discovery & Active Web Search
                 await self.monitor.log(f"[Phase 1] Auto-searching web for social media SEO platforms...")
@@ -352,8 +372,9 @@ class WorkflowController:
                         if not h_stat.is_reachable:
                             await self.monitor.log(f"Pre-screen: {domain} is unreachable ({h_stat.error_message}). Skipping safely.")
                             continue
-                    except Exception:
-                        pass
+                    except Exception as health_err:
+                        import logging
+                        logging.getLogger(__name__).warning("Pre-screen health check exception for %s: %s", domain, health_err)
 
                     # Generate content draft
                     draft = make_draft(row["name"], self.settings.keyword, self.settings.target_url, domain)

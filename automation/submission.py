@@ -83,9 +83,21 @@ class SubmissionOrchestrator:
         current_url = self.browser.page.url
         await self.monitor.state(operation={"current_website_url": current_url, "browser_action": "Page loaded"})
 
-        # 5. Check authentication status and 6. Request manual login or verification when necessary
+        # 5. Check authentication status and auto-login if credentials exist
         await self.monitor.log(f"Checking authentication status on {platform_name}...")
         is_auth, auth_issue = await adapter.check_auth(self.browser)
+        if not is_auth:
+            # Check if stored credentials exist for domain and attempt auto-login
+            creds = self.browser.account_mgr.get_credentials(domain)
+            if creds:
+                await self.monitor.log(f"Auto-login: Stored credentials detected for {domain}. Attempting automated login...")
+                login_ok, login_err = await self.browser.account_mgr.auto_login(self.browser, domain)
+                if login_ok:
+                    await self.monitor.log(f"Auto-login succeeded for {domain}! Persistent session saved.")
+                    is_auth, _ = await adapter.check_auth(self.browser)
+                else:
+                    await self.monitor.log(f"Auto-login attempt failed on {domain}: {login_err}")
+
         if not is_auth:
             issue_msg = auth_issue or "Authentication or human verification required."
             await self.monitor.log(f"Manual intervention needed on {platform_name}: {issue_msg}")
@@ -103,6 +115,9 @@ class SubmissionOrchestrator:
 
             await self.monitor.state(intervention=None)
             await self.monitor.log(f"Authentication confirmed for {platform_name}.")
+            # Save session for future runs
+            if self.browser.context:
+                await self.browser.account_mgr.save_session_state(self.browser.context, domain)
 
         if not await self.controller.checkpoint():
             return SubmissionResult(success=False, status=Status.SKIPPED, error_message="Stopped by operator")
@@ -111,6 +126,12 @@ class SubmissionOrchestrator:
         await self.monitor.log(f"Navigating to submission form on {platform_name}...")
         await self.monitor.state(operation={"workflow_stage": "NAVIGATING_FORM", "browser_action": "Finding submission form"})
         form_ready = await adapter.navigate_to_form(self.browser)
+        if not form_ready:
+            # Fallback: attempt deep form discovery and click modal triggers
+            from automation.form_detector import IntelligentFormDetector
+            form_detector = IntelligentFormDetector()
+            form_ready = await form_detector.discover_and_open_form(self.browser)
+
         if not form_ready:
             err = f"Submission form could not be located on {platform_name}"
             await self.monitor.log(err)
@@ -132,6 +153,20 @@ class SubmissionOrchestrator:
             approval_status=draft_row["approval_status"],
         )
 
+        # Autonomous Content Quality & Relevance Review
+        if self.settings.auto_content_evaluation:
+            try:
+                from content.evaluator import ContentEvaluator
+                evaluator = ContentEvaluator(self.settings.keyword, self.settings.min_content_approval_score)
+                eval_res = evaluator.evaluate_draft(draft, target_url)
+                self.repo.record_content_evaluation(draft_row["id"], platform_id, eval_res)
+                await self.monitor.log(f"Autonomous Content Review: Grade {eval_res.grade} ({eval_res.composite_score}/100) — {eval_res.justification}")
+                if eval_res.auto_approved:
+                    self.repo.approve_draft(platform_id, True)
+                    draft.approval_status = ApprovalStatus.APPROVED
+            except Exception as eval_err:
+                logger.warning("Content evaluation error: %s", eval_err)
+
         await self.monitor.log(f"Populating submission form with visible DOM highlighting...")
         await self.monitor.state(
             operation={
@@ -140,6 +175,15 @@ class SubmissionOrchestrator:
                 "current_submission_title": draft.title,
             }
         )
+
+        # Inject client-side autofill helper
+        try:
+            from automation.form_detector import IntelligentFormDetector
+            form_detector = IntelligentFormDetector()
+            if self.browser.page:
+                await form_detector.inject_autofill_helper(self.browser.page, draft)
+        except Exception:
+            pass
 
         fill_ok, fill_err = await adapter.fill_form(self.browser, draft)
         if not fill_ok:
@@ -230,7 +274,7 @@ class SubmissionOrchestrator:
 
         if result.success:
             await self.monitor.log(f"Submission confirmed! Published URL: {result.published_url or 'Confirmed on page'}")
-            self.repo.record_submission(
+            sub_id = self.repo.record_submission(
                 platform_id,
                 draft_row["id"],
                 target_url,
@@ -240,19 +284,61 @@ class SubmissionOrchestrator:
             )
             self.repo.set_metrics(platform_id, {}, Status.PUBLISHED)
 
-            # Trigger live Technical SEO Backlink Audit
+            # 1. Independent Public Post & Link Verification
+            if self.settings.public_verification_enabled and result.published_url:
+                try:
+                    from automation.public_verifier import PublicPostVerifier
+                    verifier = PublicPostVerifier(target_url=target_url)
+                    verif_res = await verifier.verify_public_url(result.published_url)
+                    self.repo.record_public_verification(sub_id, platform_id, verif_res)
+                    badge = "CONFIRMED PUBLIC" if verif_res.is_publicly_visible else "NOT PUBLIC"
+                    await self.monitor.log(
+                        f"Independent Public Verification: [{badge}] "
+                        f"Public Access={verif_res.is_publicly_visible} | Link Verified={verif_res.public_link_verified} | Status={verif_res.moderation_status}"
+                    )
+                except Exception as verif_err:
+                    logger.warning("Public verification check error: %s", verif_err)
+
+            # 2. Trigger live Technical SEO Backlink Audit
+            audit_res = None
             try:
                 from automation.seo_auditor import TechnicalSEOAuditor
-                auditor = TechnicalSEOAuditor(primary_keyword=self.settings.primary_keyword)
+                auditor = TechnicalSEOAuditor(primary_keyword=self.settings.keyword)
                 audit_target_url = result.published_url or self.browser.page.url
                 audit_res = await auditor.audit_url(audit_target_url, target_url, page=self.browser.page)
                 self.repo.save_backlink_audit(platform_id, audit_res)
                 await self.monitor.log(
-                    f"Backlink audit completed: Quality Score={audit_res.quality_score}/100 | "
-                    f"Dofollow={audit_res.is_dofollow} | Anchor='{audit_res.anchor_text}'"
+                    f"Backlink audit completed: Grade={audit_res.indexability_grade} | Quality Score={audit_res.quality_score}/100 | "
+                    f"Dofollow={audit_res.is_dofollow} | Anchor='{audit_res.anchor_text}' | "
+                    f"Robots.txt={'ALLOWED' if audit_res.robots_txt_allowed else 'DISALLOWED'}"
                 )
             except Exception as audit_err:
                 logger.warning("Technical backlink audit error: %s", audit_err)
+
+            # 3. Campaign Referral Traffic & Search Visibility Impact
+            if self.settings.traffic_analytics_enabled and audit_res:
+                try:
+                    from automation.traffic_analytics import TrafficAnalyticsTracker
+                    tracker = TrafficAnalyticsTracker(target_url=target_url)
+                    analytics = tracker.estimate_platform_impact(
+                        domain=domain,
+                        da=platform_row.get("da") or 30.0,
+                        is_dofollow=audit_res.is_dofollow,
+                        quality_score=audit_res.quality_score,
+                    )
+                    self.repo.record_campaign_analytics(
+                        platform_id, domain, analytics.utm_url,
+                        analytics.traffic_tier, analytics.estimated_monthly_impressions,
+                        analytics.equity_value_score,
+                    )
+                    await self.monitor.log(
+                        f"Campaign Referral Impact: Tier='{analytics.traffic_tier}' | "
+                        f"Est. Impressions={analytics.estimated_monthly_impressions}/mo | "
+                        f"Equity Value=${analytics.equity_value_score:.2f} | UTM: {analytics.utm_url}"
+                    )
+                except Exception as tr_err:
+                    logger.warning("Traffic analytics error: %s", tr_err)
+
         else:
             await self.monitor.log(f"Submission unverified or failed: {result.error_message}")
             self.repo.record_submission(

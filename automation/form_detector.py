@@ -321,3 +321,80 @@ class IntelligentFormDetector:
         except Exception as exc:
             logger.error("Auto form fill encountered an error: %s", exc)
             return False, f"Auto form fill failed: {exc}"
+
+    async def discover_and_open_form(self, browser: VisibleBrowser) -> bool:
+        """Discovers and clicks buttons that trigger submission dialogs or modals."""
+        page = browser.page
+        if not page:
+            return False
+
+        # First check if form is already usable
+        rep = await self.detect_form(page)
+        if rep.is_usable:
+            return True
+
+        triggers = [
+            "button:has-text('New Post')",
+            "button:has-text('Create Post')",
+            "button:has-text('Submit Link')",
+            "button:has-text('Submit')",
+            "button:has-text('Add Bookmark')",
+            "button:has-text('New')",
+            "button:has-text('Create')",
+            "a[href*='submit']",
+            "a[href*='new']",
+            "a:has-text('Submit')",
+            "a:has-text('New Post')",
+            "[aria-label*='create' i]",
+            "[aria-label*='new' i]",
+            "[data-testid*='create' i]",
+        ]
+
+        for sel in triggers:
+            loc = page.locator(sel).first
+            try:
+                if await loc.count() > 0 and await loc.is_visible():
+                    logger.info("Clicking form trigger element: %s", sel)
+                    await browser.highlight_and_click(loc, "Open Form", human_like=True)
+                    await asyncio.sleep(1.5)
+                    # Re-check form detection
+                    new_rep = await self.detect_form(page)
+                    if new_rep.is_usable:
+                        return True
+            except Exception:
+                continue
+
+        return False
+
+    async def inject_autofill_helper(self, page: Page, draft: Draft) -> None:
+        """Injects a client-side JavaScript helper to autofill active or detected fields."""
+        script = """({title, url, description, tags}) => {
+            window.__seo_autofill = () => {
+                const titleEl = document.querySelector('input[name*="title" i], input[id*="title" i], #title-input');
+                if (titleEl) { titleEl.value = title; titleEl.dispatchEvent(new Event('input', {bubbles: true})); }
+                const urlEl = document.querySelector('input[name*="url" i], input[type="url"], #url-input');
+                if (urlEl) { urlEl.value = url; urlEl.dispatchEvent(new Event('input', {bubbles: true})); }
+                const descEl = document.querySelector('textarea, div[contenteditable="true"], #desc-input');
+                if (descEl) {
+                    if (descEl.tagName.toLowerCase() === 'textarea') {
+                        descEl.value = description; descEl.dispatchEvent(new Event('input', {bubbles: true}));
+                    } else {
+                        descEl.innerText = description;
+                    }
+                }
+                const tagsEl = document.querySelector('input[name*="tag" i], #tags-input');
+                if (tagsEl) { tagsEl.value = tags; tagsEl.dispatchEvent(new Event('input', {bubbles: true})); }
+            };
+        }"""
+        try:
+            await page.evaluate(
+                script,
+                {
+                    "title": draft.title,
+                    "url": draft.target_url,
+                    "description": draft.description,
+                    "tags": draft.tags,
+                },
+            )
+        except Exception:
+            pass

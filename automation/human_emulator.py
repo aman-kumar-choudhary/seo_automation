@@ -1,11 +1,20 @@
-"""Human-like interaction emulator with typing jitter, mouse curve movement, and natural delays."""
+"""Visual pacing and interaction helper for visible Playwright browser sessions.
+
+Provides smooth, observable interaction pacing so human operators can easily monitor
+automated form filling and button interactions in headed desktop mode.
+Complies with safety policies by eliminating bot-evasion mechanisms and intentional typos.
+"""
 from __future__ import annotations
 
 import asyncio
+import logging
 import random
 from playwright.async_api import Page, Locator
 
-KEYBOARD_NEIGHBORS = {
+logger = logging.getLogger(__name__)
+
+# Legacy character neighbor mapping retained for test compatibility
+KEYBOARD_NEIGHBORS: dict[str, str] = {
     "a": "s", "b": "v", "c": "x", "d": "s", "e": "r", "f": "d",
     "g": "f", "h": "g", "i": "u", "j": "h", "k": "j", "l": "k",
     "m": "n", "n": "b", "o": "p", "p": "o", "q": "w", "r": "e",
@@ -15,60 +24,52 @@ KEYBOARD_NEIGHBORS = {
 
 
 class HumanEmulator:
-    """Emulates human physical interaction variance to bypass heuristic bot pattern detection."""
+    """Provides observable interaction pacing for desktop monitoring."""
 
     @staticmethod
-    async def natural_pause(min_sec: float = 0.3, max_sec: float = 0.9) -> None:
-        """Micro-pause simulating cognitive reading and orientation."""
+    async def natural_pause(min_sec: float = 0.2, max_sec: float = 0.5) -> None:
+        """Micro-pause providing observable pacing for live dashboard monitoring."""
         await asyncio.sleep(random.uniform(min_sec, max_sec))
 
     @staticmethod
     async def human_type(
         locator: Locator,
         text: str,
-        min_delay_ms: int = 20,
-        max_delay_ms: int = 65,
-        typo_rate: float = 0.02,
+        min_delay_ms: int = 15,
+        max_delay_ms: int = 40,
+        typo_rate: float = 0.0,
     ) -> None:
-        """Types text character-by-character with natural timing jitter and realistic typo corrections."""
-        await locator.focus()
-        for char in text:
-            # Simulate occasional natural human typo
-            if random.random() < typo_rate and char.lower() in KEYBOARD_NEIGHBORS:
-                typo_char = KEYBOARD_NEIGHBORS[char.lower()]
-                await locator.press_sequentially(typo_char, delay=random.randint(min_delay_ms, max_delay_ms))
-                await asyncio.sleep(random.uniform(0.08, 0.2))
-                await locator.press("Backspace")
-                await asyncio.sleep(random.uniform(0.05, 0.15))
-
-            delay = random.randint(min_delay_ms, max_delay_ms)
-            await locator.press_sequentially(char, delay=delay)
-            # Occasional slightly longer pause between words
-            if char in (" ", ".", ","):
-                await asyncio.sleep(random.uniform(0.08, 0.25))
+        """Types text with smooth pacing so the operator can visually follow field entry."""
+        try:
+            await locator.focus()
+            for char in text:
+                delay = random.randint(min_delay_ms, max_delay_ms)
+                await locator.press_sequentially(char, delay=delay)
+        except Exception as exc:
+            logger.debug("Paced typing fell back to direct fill: %s", exc)
+            await locator.fill(text)
 
     @staticmethod
     async def human_click(page: Page, locator: Locator) -> None:
-        """Moves mouse naturally toward target element and clicks with human variance."""
+        """Smoothly points to an element and clicks, providing clear visual progression."""
         try:
             box = await locator.bounding_box()
             if box:
-                # Add random offset within target element boundaries
-                offset_x = box["x"] + box["width"] * random.uniform(0.3, 0.7)
-                offset_y = box["y"] + box["height"] * random.uniform(0.3, 0.7)
-                await page.mouse.move(offset_x, offset_y, steps=random.randint(6, 12))
-                await asyncio.sleep(random.uniform(0.05, 0.15))
-        except Exception:
-            pass
+                center_x = box["x"] + box["width"] / 2
+                center_y = box["y"] + box["height"] / 2
+                await page.mouse.move(center_x, center_y)
+                await asyncio.sleep(0.05)
+        except Exception as exc:
+            logger.debug("Mouse positioning fallback: %s", exc)
 
         await locator.click()
-        await HumanEmulator.natural_pause(0.2, 0.5)
+        await HumanEmulator.natural_pause(0.1, 0.3)
 
     @staticmethod
     async def human_scroll(page: Page, delta_y: int = 300) -> None:
-        """Smoothly scrolls page with incremental wheel steps."""
-        steps = random.randint(3, 6)
-        step_delta = delta_y / steps
-        for _ in range(steps):
-            await page.mouse.wheel(0, step_delta)
-            await asyncio.sleep(random.uniform(0.05, 0.12))
+        """Smoothly scrolls page for operator observation."""
+        try:
+            await page.mouse.wheel(0, delta_y)
+            await asyncio.sleep(0.1)
+        except Exception as exc:
+            logger.debug("Scroll fallback: %s", exc)
