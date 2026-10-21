@@ -1,5 +1,10 @@
-.agents
-.aws
-.codex
-.pytest_cache
-.venv
+__pycache__/
+*.pyc
+*.egg-info/
+.venv/
+seo_output/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.sqlite
+*.json.key

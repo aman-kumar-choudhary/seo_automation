@@ -1,0 +1,28 @@
+max_pages = 300
+max_depth = 6
+crawl_delay = 1.5
+user_agent = "ResponsibleSEOAudit/0.3 (+https://yourcompany.com/seo-bot)"
+check_external_links = true
+max_link_checks = 150
+render_js = false
+target_keywords = ["running shoes", "trail running"]
+output_dir = "seo_output"
+
+# Crawl-trap protection
+exclude_patterns = ["/cart", "/checkout", "[?&]sort="]
+max_query_params = 5
+check_llms_txt = true
+
+# Google data (0 / empty = off)
+pagespeed_urls = 0
+pagespeed_strategy = "mobile"
+gsc_property = ""            # e.g. "sc-domain:example.com"
+gsc_credentials_file = ""    # service-account JSON key
+gsc_urls = 50
+
+# AI suggestions (API key only via env SEO_AI_API_KEY)
+ai_suggestions = false
+ai_base_url = "https://api.openai.com/v1"
+ai_model = ""
+ai_max_pages = 20
+brand_voice = ""
