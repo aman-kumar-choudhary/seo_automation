@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SEO &amp; GEO Auditor</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="theme-light">
+  <div class="app-layout">
+    <!-- Top Navigation -->
+    <nav class="top-nav">
+      <div class="nav-left">
+        <div class="nav-brand">
+          <svg class="brand-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 11a9 9 0 0 1 9 9"></path>
+            <path d="M4 4a16 16 0 0 1 16 16"></path>
+            <circle cx="5" cy="19" r="1"></circle>
+          </svg>
+          <span class="brand-name">SEO Auditor</span>
+          <span class="version-tag">GEO + Technical</span>
+        </div>
+      </div>
+      <div class="nav-right">
+        <button id="historyDrawerBtn" class="nav-btn" type="button">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polyline points="12 6 12 12 16 14"></polyline>
+          </svg>
+          <span>History (<span id="historyCount">0</span>)</span>
+        </button>
+        <button id="themeToggleBtn" class="nav-icon-btn" type="button" title="Toggle theme">
+          <svg class="icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="4"></circle>
+            <path d="M12 2v2"></path>
+            <path d="M12 20v2"></path>
+            <path d="m4.93 4.93 1.41 1.41"></path>
+            <path d="m17.66 17.66 1.41 1.41"></path>
+            <path d="M2 12h2"></path>
+            <path d="M20 12h2"></path>
+            <path d="m6.34 17.66-1.41 1.41"></path>
+            <path d="m19.07 4.93-1.41 1.41"></path>
+          </svg>
+        </button>
+      </div>
+    </nav>
+
+    <!-- Main Workspace Area -->
+    <main class="main-content">
+      <!-- Search / Audit Input Bar -->
+      <section class="audit-input-section">
+        <form id="auditForm" class="audit-input-card">
+          <div class="audit-bar-row">
+            <div class="input-prefix-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="2" y1="12" x2="22" y2="12"></line>
+                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+              </svg>
+            </div>
+            <input 
+              type="text" 
+              id="targetUrl" 
+              name="url" 
+              placeholder="Enter site URL (e.g. https://innovions-web.vercel.app/team)" 
+              required 
+              autocomplete="off" 
+              spellcheck="false"
+            />
+            <button type="submit" id="startAuditBtn" class="btn-submit">
+              <span>Run Audit</span>
+            </button>
+          </div>
+
+          <!-- Inline Settings Bar -->
+          <div class="inline-options-bar">
+            <div class="option-pill-group">
+              <label for="optMaxPages" class="opt-label">Pages:</label>
+              <select id="optMaxPages" class="opt-select">
+                <option value="1">1 page (Quick)</option>
+                <option value="10" selected>10 pages</option>
+                <option value="50">50 pages</option>
+                <option value="100">100 pages</option>
+                <option value="200">200 pages</option>
+              </select>
+            </div>
+
+            <div class="option-pill-group">
+              <label for="optMaxDepth" class="opt-label">Depth:</label>
+              <select id="optMaxDepth" class="opt-select">
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3" selected>3</option>
+                <option value="5">5</option>
+              </select>
+            </div>
+
+            <div class="option-pill-group">
+              <label class="opt-checkbox-label">
+                <input type="checkbox" id="optRenderJs" />
+                <span>JavaScript Rendering</span>
+              </label>
+            </div>
+
+            <button type="button" id="optionsToggleBtn" class="btn-text-subtle">
+              <span id="optionsToggleText">Advanced settings</span>
+            </button>
+          </div>
+
+          <!-- Collapsible Advanced Settings -->
+          <div id="optionsPanel" class="advanced-panel hidden">
+            <div class="advanced-grid">
+              <div class="advanced-field">
+                <label for="optCrawlDelay">Crawl Delay (seconds)</label>
+                <input type="number" id="optCrawlDelay" value="0.5" min="0.2" step="0.1" max="5.0" />
+              </div>
+              <div class="advanced-field">
+                <label for="optKeywords">Target Keywords</label>
+                <input type="text" id="optKeywords" placeholder="comma-separated keywords" />
+              </div>
+              <div class="advanced-field checkbox-field">
+                <label>
+                  <input type="checkbox" id="optCheckExternal" />
+                  <span>Check external links</span>
+                </label>
+              </div>
+            </div>
+          </div>
+        </form>
+
+        <!-- Recent Runs Bar -->
+        <div id="recentQuickBar" class="recent-bar">
+          <span class="recent-label">Recent audits:</span>
+          <div id="recentPills" class="recent-pill-list"></div>
+        </div>
+      </section>
+
+      <!-- Active Crawl Progress State -->
+      <section id="progressCard" class="crawl-progress-card hidden">
+        <div class="progress-main-row">
+          <div class="progress-indicator">
+            <span class="pulse-dot"></span>
+          </div>
+          <div class="progress-info">
+            <div class="progress-headline-row">
+              <h3 id="progressTitle">Crawling site...</h3>
+              <span id="progressTimer" class="time-elapsed">0s</span>
+            </div>
+            <p id="progressSubtitle" class="progress-detail">Fetching robots.txt and sitemaps</p>
+          </div>
+        </div>
+        <div class="progress-track">
+          <div class="progress-fill"></div>
+        </div>
+        <div class="log-stream-header" id="toggleLogsBtn">
+          <span>Execution logs (<span id="logCountBadge">0</span>)</span>
+          <span class="log-toggle-hint">Toggle</span>
+        </div>
+        <div id="liveLogs" class="log-stream-body"></div>
+      </section>
+
+      <!-- Error Message Banner -->
+      <div id="errorBanner" class="alert-banner error hidden">
+        <div class="alert-content">
+          <strong>Error:</strong>
+          <span id="errorMessage">Unable to complete audit.</span>
+        </div>
+        <button id="closeErrorBtn" class="alert-close" type="button">&times;</button>
+      </div>
+
+      <!-- Report Container -->
+      <div id="reportContainer" class="report-wrapper hidden">
+        <!-- Target Overview Bar -->
+        <div class="report-meta-header">
+          <div class="meta-left">
+            <div class="meta-sub">Audit Report</div>
+            <div class="meta-target-row">
+              <h2 id="reportTargetUrl" class="meta-target-url">https://example.com</h2>
+              <a id="reportExternalLink" href="#" target="_blank" rel="noopener" class="icon-link" title="Open in new tab">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                  <polyline points="15 3 21 3 21 9"></polyline>
+                  <line x1="10" y1="14" x2="21" y2="3"></line>
+                </svg>
+              </a>
+            </div>
+            <div class="meta-timestamp" id="reportTimestamp">--</div>
+          </div>
+          <div class="meta-actions">
+            <div class="dropdown-wrapper">
+              <button id="downloadMenuBtn" class="btn-subtle" type="button">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="7 10 12 15 17 10"></polyline>
+                  <line x1="12" y1="15" x2="12" y2="3"></line>
+                </svg>
+                <span>Export</span>
+              </button>
+              <div id="downloadMenu" class="dropdown-popover">
+                <a id="dlMarkdownBtn" href="#">Markdown Report (.md)</a>
+                <a id="dlJsonBtn" href="#">Raw Data (.json)</a>
+                <a id="dlIssuesCsvBtn" href="#">Issues Table (.csv)</a>
+                <a id="dlPagesCsvBtn" href="#">Pages Table (.csv)</a>
+                <a id="dlRecsCsvBtn" href="#">Recommendations (.csv)</a>
+              </div>
+            </div>
+            <button id="printReportBtn" class="btn-subtle" type="button">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 6 2 18 2 18 9"></polyline>
+                <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+                <rect x="6" y="14" width="12" height="8"></rect>
+              </svg>
+              <span>Print</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Metric Cards Strip -->
+        <div class="metrics-strip">
+          <!-- Overall Scorecard -->
+          <div class="metric-card scorecard">
+            <div class="metric-label">Health Score</div>
+            <div class="score-display">
+              <span class="score-value" id="healthScoreValue">--</span>
+              <span class="score-denominator">/100</span>
+              <span class="score-badge" id="healthScoreBadge">--</span>
+            </div>
+            <div class="metric-note">Weighted by issue severities</div>
+          </div>
+
+          <!-- Issue Counts -->
+          <div class="metric-card">
+            <div class="metric-label">Total Issues Detected</div>
+            <div class="metric-headline" id="totalIssuesCount">0</div>
+            <div class="severity-dot-row">
+              <span class="sev-dot-item" title="Critical">
+                <span class="dot dot-critical"></span>
+                <span id="sevCriticalCount">0</span> Critical
+              </span>
+              <span class="sev-dot-item" title="High">
+                <span class="dot dot-high"></span>
+                <span id="sevHighCount">0</span> High
+              </span>
+              <span class="sev-dot-item" title="Medium">
+                <span class="dot dot-medium"></span>
+                <span id="sevMediumCount">0</span> Med
+              </span>
+              <span class="sev-dot-item" title="Low">
+                <span class="dot dot-low"></span>
+                <span id="sevLowCount">0</span> Low
+              </span>
+            </div>
+          </div>
+
+          <!-- Crawl Coverage -->
+          <div class="metric-card">
+            <div class="metric-label">Crawl Coverage</div>
+            <div class="metric-headline">
+              <span id="pagesCrawledCount">0</span>
+              <span class="metric-sub-headline">pages (<span id="indexableCount">0</span> indexable)</span>
+            </div>
+            <div class="metric-note" id="crawlExtraMeta">Duration: 0s</div>
+          </div>
+
+          <!-- AI Search Bot Readiness -->
+          <div class="metric-card">
+            <div class="metric-label">AI Search Bot Access</div>
+            <div class="metric-headline" id="geoBotsAllowed">8 / 8</div>
+            <div class="metric-note" id="llmsTxtBadge">llms.txt not found</div>
+          </div>
+        </div>
+
+        <!-- Navigation Tabs -->
+        <div class="segmented-tabs">
+          <button class="seg-tab active" data-tab="tabRecommendations">
+            Recommendations (<span id="tabRecsCount">0</span>)
+          </button>
+          <button class="seg-tab" data-tab="tabGeo">
+            AI Search &amp; GEO
+          </button>
+          <button class="seg-tab" data-tab="tabIssues">
+            Issues List (<span id="tabIssuesCount">0</span>)
+          </button>
+          <button class="seg-tab" data-tab="tabPages">
+            Crawled Pages (<span id="tabPagesCount">0</span>)
+          </button>
+          <button class="seg-tab" data-tab="tabProposals">
+            Proposals (<span id="tabProposalsCount">0</span>)
+          </button>
+          <button class="seg-tab" data-tab="tabMarkdown">
+            Raw Report
+          </button>
+        </div>
+
+        <!-- Tab 1: Recommendations -->
+        <section id="tabRecommendations" class="tab-content active">
+          <div id="recommendationsList" class="recommendations-list"></div>
+        </section>
+
+        <!-- Tab 2: AI Search & GEO -->
+        <section id="tabGeo" class="tab-content">
+          <div class="section-callout">
+            <div class="callout-title">Search &amp; AI Crawler Directives</div>
+            <div class="callout-body">
+              Google AI Overviews and AI Mode operate under Googlebot indexing eligibility without separate crawler tokens. Other AI engines (OpenAI ChatGPT Search, Perplexity, Anthropic Claude) use distinct crawler user-agents declared in <code>robots.txt</code>.
+            </div>
+          </div>
+
+          <div class="crawlers-table-container">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th style="width: 180px;">Crawler Token</th>
+                  <th style="width: 140px;">Operator</th>
+                  <th>Purpose</th>
+                  <th style="width: 100px;">Category</th>
+                  <th style="width: 100px;">Start URL</th>
+                  <th style="width: 80px;">Ref</th>
+                </tr>
+              </thead>
+              <tbody id="geoCrawlersTableBody"></tbody>
+            </table>
+          </div>
+
+          <div class="geo-meta-grid">
+            <div class="geo-meta-card">
+              <div class="meta-card-title">llms.txt Specification</div>
+              <div class="meta-card-text" id="llmsTxtStatusBox">Status checking...</div>
+            </div>
+            <div class="geo-meta-card">
+              <div class="meta-card-title">Entity Schema &amp; Knowledge Graph</div>
+              <div class="meta-card-text" id="entitySchemaStatusBox">
+                Structured data (<code>Organization</code> / <code>WebSite</code> with <code>sameAs</code>) assists AI answer engines in identifying the entity behind the domain.
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Tab 3: Issues Table -->
+        <section id="tabIssues" class="tab-content">
+          <div class="table-toolbar">
+            <div class="search-box">
+              <input type="text" id="issuesSearchInput" placeholder="Filter issues by title, message, or URL..." />
+            </div>
+            <div class="filter-group" id="severityFilterPills">
+              <button class="pill-btn active" data-severity="ALL">All</button>
+              <button class="pill-btn" data-severity="CRITICAL">Critical</button>
+              <button class="pill-btn" data-severity="HIGH">High</button>
+              <button class="pill-btn" data-severity="MEDIUM">Medium</button>
+              <button class="pill-btn" data-severity="LOW">Low</button>
+              <button class="pill-btn" data-severity="INFO">Info</button>
+            </div>
+            <div class="select-box">
+              <select id="categoryFilterSelect">
+                <option value="ALL">All categories</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="data-table-container">
+            <table class="data-table" id="issuesTable">
+              <thead>
+                <tr>
+                  <th style="width: 90px;">Severity</th>
+                  <th style="width: 110px;">Category</th>
+                  <th>Issue</th>
+                  <th>Affected URL</th>
+                  <th style="width: 80px; text-align: right;">Detail</th>
+                </tr>
+              </thead>
+              <tbody id="issuesTableBody"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- Tab 4: Pages Table -->
+        <section id="tabPages" class="tab-content">
+          <div class="table-toolbar">
+            <div class="search-box">
+              <input type="text" id="pagesSearchInput" placeholder="Filter pages by URL or title..." />
+            </div>
+            <div class="toolbar-stat" id="pagesFilteredCount">0 pages</div>
+          </div>
+
+          <div class="data-table-container">
+            <table class="data-table" id="pagesTable">
+              <thead>
+                <tr>
+                  <th>Page URL</th>
+                  <th style="width: 70px;">Status</th>
+                  <th style="width: 80px;">Indexable</th>
+                  <th>Title</th>
+                  <th style="width: 60px;">H1</th>
+                  <th style="width: 70px;">Words</th>
+                  <th style="width: 70px;">TTFB</th>
+                  <th style="width: 80px;">Images</th>
+                </tr>
+              </thead>
+              <tbody id="pagesTableBody"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- Tab 5: Metadata Proposals -->
+        <section id="tabProposals" class="tab-content">
+          <div id="proposalsContainer" class="proposals-list"></div>
+        </section>
+
+        <!-- Tab 6: Raw Markdown Report -->
+        <section id="tabMarkdown" class="tab-content">
+          <div class="markdown-bar">
+            <span>Markdown source (report.md)</span>
+            <button id="copyMarkdownBtn" class="btn-subtle" type="button">Copy to clipboard</button>
+          </div>
+          <pre id="markdownPreviewContent" class="code-viewer"></pre>
+        </section>
+      </div>
+    </main>
+
+    <!-- Past Audits Drawer -->
+    <div id="historyDrawer" class="drawer-backdrop hidden">
+      <div class="drawer-sheet">
+        <div class="drawer-header">
+          <h3>Audit History</h3>
+          <button id="closeHistoryBtn" class="btn-icon-close" type="button">&times;</button>
+        </div>
+        <div id="historyList" class="drawer-content"></div>
+      </div>
+    </div>
+
+    <!-- Issue Evidence Modal -->
+    <div id="evidenceModal" class="modal-backdrop hidden">
+      <div class="modal-sheet">
+        <div class="modal-header">
+          <h4 id="evidenceModalTitle">Issue Diagnostic Details</h4>
+          <button id="closeEvidenceBtn" class="btn-icon-close" type="button">&times;</button>
+        </div>
+        <div class="modal-content">
+          <div id="evidenceMeta" class="evidence-meta-box"></div>
+          <pre id="evidenceJson" class="evidence-json-box"></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
