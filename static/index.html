@@ -6,7 +6,7 @@
   <title>SEO &amp; GEO Auditor</title>
   <link rel="stylesheet" href="/static/style.css">
 </head>
-<body class="theme-light">
+<body>
   <div class="app-layout">
     <!-- Top Navigation -->
     <nav class="top-nav">
@@ -18,7 +18,6 @@
             <circle cx="5" cy="19" r="1"></circle>
           </svg>
           <span class="brand-name">SEO Auditor</span>
-          <span class="version-tag">GEO + Technical</span>
         </div>
       </div>
       <div class="nav-right">
@@ -28,19 +27,6 @@
             <polyline points="12 6 12 12 16 14"></polyline>
           </svg>
           <span>History (<span id="historyCount">0</span>)</span>
-        </button>
-        <button id="themeToggleBtn" class="nav-icon-btn" type="button" title="Toggle theme">
-          <svg class="icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="4"></circle>
-            <path d="M12 2v2"></path>
-            <path d="M12 20v2"></path>
-            <path d="m4.93 4.93 1.41 1.41"></path>
-            <path d="m17.66 17.66 1.41 1.41"></path>
-            <path d="M2 12h2"></path>
-            <path d="M20 12h2"></path>
-            <path d="m6.34 17.66-1.41 1.41"></path>
-            <path d="m19.07 4.93-1.41 1.41"></path>
-          </svg>
         </button>
       </div>
     </nav>
@@ -62,7 +48,7 @@
               type="text" 
               id="targetUrl" 
               name="url" 
-              placeholder="Enter site URL (e.g. https://innovions-web.vercel.app/team)" 
+              placeholder="Enter website URL"
               required 
               autocomplete="off" 
               spellcheck="false"
@@ -175,7 +161,7 @@
           <div class="meta-left">
             <div class="meta-sub">Audit Report</div>
             <div class="meta-target-row">
-              <h2 id="reportTargetUrl" class="meta-target-url">https://example.com</h2>
+              <h2 id="reportTargetUrl" class="meta-target-url"></h2>
               <a id="reportExternalLink" href="#" target="_blank" rel="noopener" class="icon-link" title="Open in new tab">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
@@ -259,14 +245,14 @@
               <span id="pagesCrawledCount">0</span>
               <span class="metric-sub-headline">pages (<span id="indexableCount">0</span> indexable)</span>
             </div>
-            <div class="metric-note" id="crawlExtraMeta">Duration: 0s</div>
+            <div class="metric-note" id="crawlExtraMeta"></div>
           </div>
 
           <!-- AI Search Bot Readiness -->
           <div class="metric-card">
             <div class="metric-label">AI Search Bot Access</div>
-            <div class="metric-headline" id="geoBotsAllowed">8 / 8</div>
-            <div class="metric-note" id="llmsTxtBadge">llms.txt not found</div>
+            <div class="metric-headline" id="geoBotsAllowed"></div>
+            <div class="metric-note" id="llmsTxtBadge"></div>
           </div>
         </div>
 
@@ -299,13 +285,6 @@
 
         <!-- Tab 2: AI Search & GEO -->
         <section id="tabGeo" class="tab-content">
-          <div class="section-callout">
-            <div class="callout-title">Search &amp; AI Crawler Directives</div>
-            <div class="callout-body">
-              Google AI Overviews and AI Mode operate under Googlebot indexing eligibility without separate crawler tokens. Other AI engines (OpenAI ChatGPT Search, Perplexity, Anthropic Claude) use distinct crawler user-agents declared in <code>robots.txt</code>.
-            </div>
-          </div>
-
           <div class="crawlers-table-container">
             <table class="data-table">
               <thead>
@@ -326,12 +305,6 @@
             <div class="geo-meta-card">
               <div class="meta-card-title">llms.txt Specification</div>
               <div class="meta-card-text" id="llmsTxtStatusBox">Status checking...</div>
-            </div>
-            <div class="geo-meta-card">
-              <div class="meta-card-title">Entity Schema &amp; Knowledge Graph</div>
-              <div class="meta-card-text" id="entitySchemaStatusBox">
-                Structured data (<code>Organization</code> / <code>WebSite</code> with <code>sameAs</code>) assists AI answer engines in identifying the entity behind the domain.
-              </div>
             </div>
           </div>
         </section>

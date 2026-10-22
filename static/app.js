@@ -46,7 +46,6 @@ const evidenceJson = document.getElementById('evidenceJson');
 const downloadMenuBtn = document.getElementById('downloadMenuBtn');
 const downloadMenu = document.getElementById('downloadMenu');
 
-const themeToggleBtn = document.getElementById('themeToggleBtn');
 const printReportBtn = document.getElementById('printReportBtn');
 const copyMarkdownBtn = document.getElementById('copyMarkdownBtn');
 
@@ -60,14 +59,11 @@ const optCheckExternal = document.getElementById('optCheckExternal');
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
-  initTheme();
   setupEventListeners();
   loadPastReports();
 });
 
 function setupEventListeners() {
-  themeToggleBtn.addEventListener('click', toggleTheme);
-
   // Advanced options toggle
   optionsToggleBtn.addEventListener('click', () => {
     const isHidden = optionsPanel.classList.toggle('hidden');
@@ -157,19 +153,6 @@ function setupEventListeners() {
   document.getElementById('issuesSearchInput').addEventListener('input', filterIssuesTable);
   document.getElementById('categoryFilterSelect').addEventListener('change', filterIssuesTable);
   document.getElementById('pagesSearchInput').addEventListener('input', filterPagesTable);
-}
-
-// Theme
-function initTheme() {
-  const saved = localStorage.getItem('seo_theme') || 'theme-light';
-  document.body.className = saved;
-}
-
-function toggleTheme() {
-  const isDark = document.body.classList.contains('theme-dark');
-  const next = isDark ? 'theme-light' : 'theme-dark';
-  document.body.className = next;
-  localStorage.setItem('seo_theme', next);
 }
 
 // Load past reports
@@ -367,7 +350,7 @@ function renderReport(data) {
   const reportId = data.report_id || '';
 
   // Header
-  const targetUrl = summary.start_url || data.config?.start_url || 'Target Site';
+  const targetUrl = summary.start_url || data.config?.start_url || '';
   document.getElementById('reportTargetUrl').textContent = targetUrl;
   const extLink = document.getElementById('reportExternalLink');
   extLink.href = targetUrl;
@@ -384,12 +367,15 @@ function renderReport(data) {
   document.getElementById('dlRecsCsvBtn').href = `/api/reports/${reportId}/download/recommendations.csv`;
 
   // Score
-  const score = data.health_score !== undefined ? data.health_score : 100;
+  const score = Number.isFinite(data.health_score) ? data.health_score : null;
   const scoreVal = document.getElementById('healthScoreValue');
   const scoreBadge = document.getElementById('healthScoreBadge');
 
-  scoreVal.textContent = score;
-  if (score >= 80) {
+  scoreVal.textContent = score ?? '—';
+  if (score === null) {
+    scoreBadge.className = 'score-badge';
+    scoreBadge.textContent = 'Unavailable';
+  } else if (score >= 80) {
     scoreBadge.className = 'score-badge good';
     scoreBadge.textContent = 'Good';
   } else if (score >= 55) {
@@ -413,14 +399,22 @@ function renderReport(data) {
   document.getElementById('indexableCount').textContent = summary.indexable_pages || 0;
 
   const statusMap = summary.status_codes || {};
-  const statusStr = Object.entries(statusMap).map(([k, v]) => `${k}:${v}`).join(' ') || '200:1';
-  document.getElementById('crawlExtraMeta').textContent = `Duration: ${summary.duration_seconds || 0}s • Requests: ${summary.requests_made || 0} • Status: ${statusStr}`;
+  const statusStr = Object.entries(statusMap).map(([k, v]) => `${k}:${v}`).join(' ');
+  const crawlMeta = [];
+  if (summary.duration_seconds !== undefined) crawlMeta.push(`Duration: ${summary.duration_seconds}s`);
+  if (summary.requests_made !== undefined) crawlMeta.push(`Requests: ${summary.requests_made}`);
+  if (statusStr) crawlMeta.push(`Status: ${statusStr}`);
+  document.getElementById('crawlExtraMeta').textContent = crawlMeta.join(' • ');
 
   // AI Bots
   const crawlers = geo.crawlers || [];
   const allowed = crawlers.filter(c => c.allowed).length;
-  document.getElementById('geoBotsAllowed').textContent = `${allowed} / ${crawlers.length || 8} allowed`;
-  document.getElementById('llmsTxtBadge').textContent = geo.llms_txt === true ? 'llms.txt present' : 'llms.txt not found';
+  document.getElementById('geoBotsAllowed').textContent = crawlers.length
+    ? `${allowed} / ${crawlers.length} allowed`
+    : 'No crawler data';
+  document.getElementById('llmsTxtBadge').textContent = geo.llms_txt === true
+    ? 'llms.txt present'
+    : geo.llms_txt === false ? 'llms.txt not found' : 'Not checked';
 
   // Tabs count
   document.getElementById('tabRecsCount').textContent = recs.length;

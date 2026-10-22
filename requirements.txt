@@ -1,0 +1,16 @@
+# Dashboard
+fastapi>=0.110
+uvicorn[standard]>=0.27
+
+# SEO audit engine
+requests>=2.31
+beautifulsoup4>=4.12
+protego>=0.3
+lxml>=5.0
+
+# Optional features (uncomment when needed)
+# playwright>=1.40       # JavaScript rendering; then run: playwright install chromium
+# google-auth>=2.20      # Google Search Console integration
+# pytest>=8              # Test suite
+# ruff>=0.5              # Linting
+# mypy>=1.10             # Type checking

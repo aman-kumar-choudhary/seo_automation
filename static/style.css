@@ -46,33 +46,6 @@
   --shadow-card: 0 1px 3px 0 rgba(0, 0, 0, 0.04), 0 1px 2px -1px rgba(0, 0, 0, 0.03);
 }
 
-body.theme-dark {
-  --bg-page: #09090b;
-  --bg-surface: #121215;
-  --bg-subtle: #18181b;
-  --bg-muted: #27272a;
-  --border: #27272a;
-  --border-strong: #3f3f46;
-
-  --text-main: #f4f4f5;
-  --text-muted: #a1a1aa;
-  --text-dim: #71717a;
-
-  --accent-primary: #f4f4f5;
-  --accent-primary-text: #09090b;
-  --accent-hover: #e4e4e7;
-
-  --sev-critical-subtle: rgba(220, 38, 38, 0.12);
-  --sev-high-subtle: rgba(234, 88, 12, 0.12);
-  --sev-medium-subtle: rgba(217, 119, 6, 0.12);
-  --sev-low-subtle: rgba(37, 99, 235, 0.12);
-  --sev-info-subtle: rgba(113, 113, 122, 0.12);
-  --sev-success-subtle: rgba(22, 163, 74, 0.12);
-
-  --shadow-subtle: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
-  --shadow-card: 0 1px 3px 0 rgba(0, 0, 0, 0.4);
-}
-
 /* Base Reset */
 *, *::before, *::after {
   box-sizing: border-box;
@@ -134,16 +107,6 @@ a {
   letter-spacing: -0.01em;
 }
 
-.version-tag {
-  font-size: 0.72rem;
-  font-weight: 500;
-  padding: 2px 6px;
-  border-radius: var(--radius-xs);
-  background: var(--bg-subtle);
-  color: var(--text-muted);
-  border: 1px solid var(--border);
-}
-
 .nav-right {
   display: flex;
   align-items: center;
@@ -169,25 +132,6 @@ a {
   background: var(--bg-subtle);
   color: var(--text-main);
   border-color: var(--border-strong);
-}
-
-.nav-icon-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: all 0.12s ease;
-}
-
-.nav-icon-btn:hover {
-  background: var(--bg-subtle);
-  color: var(--text-main);
 }
 
 /* Audit Input Section */
@@ -918,27 +862,6 @@ a {
   gap: 4px;
   font-family: var(--font-mono);
   color: var(--text-muted);
-}
-
-/* GEO Section */
-.section-callout {
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: 14px 16px;
-  margin-bottom: 20px;
-}
-
-.callout-title {
-  font-weight: 700;
-  font-size: 0.88rem;
-  margin-bottom: 4px;
-}
-
-.callout-body {
-  font-size: 0.82rem;
-  color: var(--text-muted);
-  line-height: 1.45;
 }
 
 .crawlers-table-container,
