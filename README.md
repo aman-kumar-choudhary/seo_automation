@@ -151,6 +151,10 @@ SEO_AI_MODEL=<model> SEO_AI_API_KEY=<key> \
 
 Never commit API keys or service-account JSON credentials. Files ending in `.json.key` are ignored by default.
 
+## Crawl safety
+
+The crawler blocks localhost, private and link-local IP ranges, and known cloud-metadata endpoints before every request and redirect. This prevents a user-supplied URL from being used to probe internal services. For an isolated local test environment only, opt in explicitly with `--allow-private-networks` or `allow_private_networks = true` in the TOML configuration.
+
 ## Output files
 
 Each audit creates a timestamped directory under `seo_output/` containing:

@@ -2,6 +2,8 @@ max_pages = 300
 max_depth = 6
 crawl_delay = 1.5
 user_agent = "ResponsibleSEOAudit/0.3 (+https://yourcompany.com/seo-bot)"
+# Keep false in normal use. It exists only for isolated local/integration tests.
+allow_private_networks = false
 check_external_links = true
 max_link_checks = 150
 render_js = false

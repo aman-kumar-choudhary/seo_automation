@@ -25,6 +25,9 @@ class Config:
     max_backoff: float = 60.0
     max_response_bytes: int = 5_000_000
     user_agent: str = "ResponsibleSEOAudit/0.3 (+https://example.com/seo-bot)"
+    # Disabled by default to prevent SSRF against localhost, private networks,
+    # and cloud-metadata endpoints. Enable only in an isolated test environment.
+    allow_private_networks: bool = False
     include_subdomains: bool = False
     strip_tracking_params: bool = True
     use_sitemap_seeds: bool = True

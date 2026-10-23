@@ -16,7 +16,7 @@ from protego import Protego
 from .config import Config
 from .logging_setup import log
 from .resilience import AdaptiveThrottle, CircuitBreaker
-from .urls import origin_of
+from .urls import network_policy_error, origin_of
 
 logger = logging.getLogger("seo_tool.http")
 RETRY_STATUS = frozenset({429, 500, 502, 503, 504})
@@ -47,6 +47,7 @@ class FetchResult:
     ttfb: float = 0.0
     error: str | None = None
     blocked_by_robots: bool = False
+    blocked_by_network_policy: bool = False
     truncated: bool = False
 
     @property
@@ -72,6 +73,10 @@ class Fetcher:
     def __init__(self, cfg: Config) -> None:
         self.cfg = cfg
         self.session = requests.Session()
+        # Do not inherit HTTP(S)_PROXY settings. A crawler should make its own
+        # outbound connections, not silently send target URLs through an
+        # environment-configured proxy.
+        self.session.trust_env = False
         self.session.headers.update({
             "User-Agent": cfg.user_agent,
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
@@ -127,6 +132,10 @@ class Fetcher:
         chain: list[tuple[str, int]] = []
         current = url
         for _ in range(MAX_REDIRECTS + 1):
+            policy_error = network_policy_error(current, self.cfg.allow_private_networks)
+            if policy_error:
+                return FetchResult(url=url, final_url=current, redirect_chain=chain,
+                                   error=policy_error, blocked_by_network_policy=True)
             if not self.allowed(current):
                 return FetchResult(url=url, final_url=current, redirect_chain=chain,
                                    error="blocked by robots.txt", blocked_by_robots=True)
@@ -157,6 +166,9 @@ class Fetcher:
     # ---------- internals ----------
     def _request(self, url: str, method: str = "GET", read_body: bool = True,
                  max_bytes: int | None = None, delay: float | None = None) -> FetchResult:
+        policy_error = network_policy_error(url, self.cfg.allow_private_networks)
+        if policy_error:
+            return FetchResult(url=url, final_url=url, error=policy_error, blocked_by_network_policy=True)
         origin = origin_of(url)
         base = self.cfg.crawl_delay if delay is None else delay
         breaker = self._breakers.setdefault(

@@ -29,6 +29,7 @@ def _sample(site, n: int) -> list[str]:
 def cmd_audit(args: argparse.Namespace) -> int:
     cfg = Config.load(args.config, {
         "max_pages": args.max_pages, "max_depth": args.max_depth, "crawl_delay": args.delay,
+        "allow_private_networks": True if args.allow_private_networks else None,
         "render_js": args.render_js, "check_external_links": False if args.no_external else None,
         "target_keywords": args.keywords, "output_dir": args.output_dir, "log_level": args.log_level,
         "exclude_patterns": args.exclude, "max_query_params": args.max_query_params,
@@ -115,6 +116,8 @@ def build_parser() -> argparse.ArgumentParser:
     a.add_argument("--max-pages", type=int)
     a.add_argument("--max-depth", type=int)
     a.add_argument("--delay", type=float, help="seconds between requests per host (min 0.5)")
+    a.add_argument("--allow-private-networks", action="store_true",
+                   help="allow localhost/private targets only in an isolated, controlled environment")
     a.add_argument("--render-js", action="store_true", default=None)
     a.add_argument("--no-external", action="store_true", help="skip external link checks")
     a.add_argument("--keywords", help="comma-separated target keywords")

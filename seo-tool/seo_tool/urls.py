@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import ipaddress
+import socket
 from urllib.parse import parse_qsl, urlencode, urljoin, urlsplit, urlunsplit
 
 TRACKING_PARAMS = {"gclid", "fbclid", "msclkid", "mc_cid", "mc_eid", "yclid", "_ga"}
@@ -8,6 +10,60 @@ ASSET_EXTENSIONS = (
     ".rar", ".mp3", ".mp4", ".webm", ".mov", ".avi", ".doc", ".docx", ".xls", ".xlsx", ".ppt",
     ".pptx", ".css", ".js", ".woff", ".woff2", ".ttf", ".eot", ".xml", ".json", ".txt",
 )
+
+# These hostnames are special-use names rather than public websites.  Block them
+# before DNS resolution; this avoids accidentally using a local resolver for
+# metadata endpoints and makes the policy clear in audit output.
+_LOCAL_HOSTNAMES = {"localhost", "localhost.localdomain", "metadata", "metadata.google.internal"}
+_LOCAL_HOST_SUFFIXES = (".localhost", ".local", ".internal")
+# Some cloud metadata services use addresses that are not consistently marked
+# as non-global by every Python/IP registry version.
+_METADATA_IPS = {"100.100.100.200", "192.0.0.192"}
+
+
+def network_policy_error(url: str, allow_private_networks: bool = False) -> str | None:
+    """Return a reason why ``url`` must not be fetched, or ``None`` if allowed.
+
+    Crawl targets are untrusted input.  A URL can point directly at a loopback
+    or private address, or a public-looking hostname can resolve to one.  The
+    check deliberately happens before every request and every redirect hop.
+    Local crawling is available only through the explicit configuration flag,
+    which is intended for an isolated, controlled test environment.
+    """
+    try:
+        parsed = urlsplit(url)
+        scheme = parsed.scheme.lower()
+        host = (parsed.hostname or "").rstrip(".").lower()
+        port = parsed.port or (443 if scheme == "https" else 80)
+    except ValueError:
+        return "blocked by network policy: invalid URL"
+
+    if scheme not in ("http", "https"):
+        return "blocked by network policy: only http(s) URLs may be fetched"
+    if not host:
+        return "blocked by network policy: URL has no host"
+    if allow_private_networks:
+        return None
+    if host in _LOCAL_HOSTNAMES or host.endswith(_LOCAL_HOST_SUFFIXES):
+        return "blocked by network policy: local or cloud-metadata hostname"
+
+    try:
+        addresses = {ipaddress.ip_address(host)}
+    except ValueError:
+        try:
+            records = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
+            addresses = {ipaddress.ip_address(record[4][0]) for record in records}
+        except (OSError, ValueError):
+            return "blocked by network policy: host could not be resolved safely"
+
+    if not addresses:
+        return "blocked by network policy: host resolved to no addresses"
+    for address in addresses:
+        if str(address) in _METADATA_IPS:
+            return "blocked by network policy: cloud-metadata address"
+        if not address.is_global:
+            return f"blocked by network policy: non-public address ({address})"
+    return None
 
 
 def normalize_url(url: str, base: str | None = None, strip_tracking: bool = True) -> str | None:
