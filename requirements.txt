@@ -7,6 +7,7 @@ requests>=2.31
 beautifulsoup4>=4.12
 protego>=0.3
 lxml>=5.0
+tomli>=1.1.0;python_version<'3.11'
 
 # Optional features (uncomment when needed)
 # playwright>=1.40       # JavaScript rendering; then run: playwright install chromium

@@ -3,10 +3,13 @@ from __future__ import annotations
 
 import os
 import re
-import tomllib
 from dataclasses import asdict, dataclass, field, fields
 from pathlib import Path
 from typing import Any
+try:
+    import tomllib
+except ModuleNotFoundError:
+    import tomli as tomllib
 
 ENV_PREFIX = "SEO_"
 

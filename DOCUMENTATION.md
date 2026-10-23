@@ -83,14 +83,21 @@ Every audit creates `seo_output/<host>-<timestamp>/` with these files:
 | `proposals.json` | Metadata changes awaiting human review. |
 | `audit.log` | CLI logs when the command-line tool is used. |
 
-The dashboard's health score is a simple issue-count indicator:
+The dashboard's health score uses a page-normalized multi-tier escalation model:
 
 ```text
-100 - (critical × 20 + high × 10 + medium × 3 + low × 1)
+Threshold = max(10, pages_crawled)
+LowPenalty = (low × 0.5) if low <= Threshold else (Threshold × 0.5 + (low - Threshold) × 1.75)
+RawDeductions = (critical × 30 + high × 12 + medium × 3 + LowPenalty)
+NormalizedDeduction = RawDeductions / √(pages_crawled)
+Health Score = round(100 - NormalizedDeduction), constrained to 0–100.
+(If critical > 0, the score is capped at 65 to ensure broken sites cannot score 'Good').
 ```
 
-It is constrained to 0–100. It is useful for comparing audit runs, but it is
-not a Google score, ranking prediction, or measure of business performance.
+- **Critical issues** have high weight (-30) and prevent a site with severe indexing/crawl blockers from being rated "Good".
+- **Medium issues** have low weight (-3) so minor metadata gaps don't crash the score.
+- **Low issues** have minimal impact (0.5 pts) until they cross a threshold, after which they escalate (1.75 pts each) to reflect compounding technical debt.
+- **Page normalization** ($\sqrt{\text{pages}}$) ensures large site crawls are not penalized unfairly compared to small crawls.
 
 ## Metadata Proposals: What Can and Cannot Be Changed
 

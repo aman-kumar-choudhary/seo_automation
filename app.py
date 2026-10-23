@@ -3,6 +3,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 import json
 import logging
+import math
 import os
 from pathlib import Path
 import sys
@@ -79,15 +80,39 @@ class TaskLogHandler(logging.Handler):
             pass
 
 
-def calculate_health_score(issues_by_severity: Dict[str, int]) -> int:
-    """Calculates an intuitive 0-100 overall health score based on issues."""
-    critical = issues_by_severity.get("CRITICAL", 0)
-    high = issues_by_severity.get("HIGH", 0)
-    medium = issues_by_severity.get("MEDIUM", 0)
-    low = issues_by_severity.get("LOW", 0)
+def calculate_health_score(issues_by_severity: Dict[str, int], pages_crawled: int = 1) -> int:
+    """Calculates an intuitive 0-100 overall health score based on issues
+    using a page-normalized multi-tier escalation model (Ahrefs/SEMrush style).
+    - Critical: high deduction (-30 weight) with a hard cap (max 65 if any critical issue exists)
+    - High: substantial deduction (-12 weight)
+    - Medium: low deduction (-3 weight)
+    - Low: minor deduction (0.5 weight up to threshold), escalating to 1.75 beyond threshold
+    - Normalized by sqrt(pages_crawled) so large sites aren't penalized unfairly.
+    """
+    critical = max(0, int(issues_by_severity.get("CRITICAL", 0)))
+    high = max(0, int(issues_by_severity.get("HIGH", 0)))
+    medium = max(0, int(issues_by_severity.get("MEDIUM", 0)))
+    low = max(0, int(issues_by_severity.get("LOW", 0)))
 
-    score = 100 - (critical * 20 + high * 10 + medium * 3 + low * 1)
-    return max(0, min(100, score))
+    pages = max(1, int(pages_crawled or 1))
+    threshold = max(10, pages)
+    if low <= threshold:
+        low_penalty = low * 0.5
+    else:
+        low_penalty = (threshold * 0.5) + ((low - threshold) * 1.75)
+
+    raw_deductions = (critical * 30.0) + (high * 12.0) + (medium * 3.0) + low_penalty
+    norm_factor = math.sqrt(pages)
+    normalized_deduction = raw_deductions / norm_factor
+
+    score = round(100.0 - normalized_deduction)
+    score = max(0, min(100, score))
+
+    # Critical cap: a site with critical crawl/index blockers cannot be rated 'Good'
+    if critical > 0 and score > 65:
+        score = 65
+
+    return int(score)
 
 
 def run_audit_worker(task_id: str, req_data: Dict[str, Any]):
@@ -158,10 +183,19 @@ def run_audit_worker(task_id: str, req_data: Dict[str, Any]):
         report_md = report_md_path.read_text(encoding="utf-8") if report_md_path.exists() else ""
 
         # Compute health score
-        health_score = calculate_health_score(audit_data.get("summary", {}).get("issues_by_severity", {}))
+        summary = audit_data.get("summary", {})
+        pages_crawled = summary.get("pages_crawled", 1)
+        health_score = calculate_health_score(summary.get("issues_by_severity", {}), pages_crawled)
         audit_data["health_score"] = health_score
         audit_data["markdown_report"] = report_md
         audit_data["report_id"] = run_dir.name
+
+        # Persist health_score into audit.json on disk so downloads and subsequent reads include it
+        try:
+            with open(audit_json_path, "w", encoding="utf-8") as f:
+                json.dump(audit_data, f, indent=2, ensure_ascii=False)
+        except Exception:
+            pass
 
         task["status"] = "completed"
         task["progress"] = "Audit completed successfully!"
@@ -266,12 +300,15 @@ async def list_reports():
                 data = json.load(f)
             summary = data.get("summary", {})
             issues_sev = summary.get("issues_by_severity", {})
-            health_score = calculate_health_score(issues_sev)
+            pages_crawled = summary.get("pages_crawled", 1)
+            health_score = data.get("health_score")
+            if health_score is None:
+                health_score = calculate_health_score(issues_sev, pages_crawled)
             reports.append({
                 "report_id": folder.name,
                 "start_url": summary.get("start_url", ""),
                 "generated_at": data.get("generated_at", ""),
-                "pages_crawled": summary.get("pages_crawled", 0),
+                "pages_crawled": pages_crawled,
                 "total_issues": summary.get("total_issues", 0),
                 "issues_by_severity": issues_sev,
                 "duration_seconds": summary.get("duration_seconds", 0),
@@ -297,8 +334,11 @@ async def get_report_detail(report_id: str):
     if report_md_file.exists():
         data["markdown_report"] = report_md_file.read_text(encoding="utf-8")
 
-    issues_sev = data.get("summary", {}).get("issues_by_severity", {})
-    data["health_score"] = calculate_health_score(issues_sev)
+    summary = data.get("summary", {})
+    issues_sev = summary.get("issues_by_severity", {})
+    pages_crawled = summary.get("pages_crawled", 1)
+    if "health_score" not in data or data["health_score"] is None:
+        data["health_score"] = calculate_health_score(issues_sev, pages_crawled)
     data["report_id"] = report_id
     return data
 

@@ -11,7 +11,12 @@ def _load_plugins() -> None:
     [project.entry-points."seo_tool.checks"]
     mycheck = "my_package.my_module"
     """
-    for ep in entry_points(group="seo_tool.checks"):
+    try:
+        eps = entry_points(group="seo_tool.checks")
+    except TypeError:
+        all_eps = entry_points()
+        eps = all_eps.get("seo_tool.checks", []) if hasattr(all_eps, "get") else all_eps.select(group="seo_tool.checks")
+    for ep in eps:
         try:
             ep.load()
         except Exception as exc:  # a broken plugin must not break the tool
